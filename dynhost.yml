@@ -1,0 +1,38 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: Add dedicated user to run cron job
+    ansible.builtin.user:
+      name: "{{dynhost_user}}"
+      comment: OVH DynHost cron job user
+      shell: /bin/bash
+  - name: Add directory for cron job shell script
+    ansible.builtin.file:
+      name: "/home/{{dynhost_user}}/cronjob"
+      state: directory
+      mode: '500'
+      owner: "{{dynhost_user}}"
+      group: "{{dynhost_user}}"
+  - name: Touch log file
+    ansible.builtin.file:
+      path: "{{dynhost_log_dir}}/dynhostd.{{dynhost_host}}.log"
+      state: touch
+      mode: '600'
+      owner: "{{dynhost_user}}"
+      group: "{{dynhost_user}}"
+  - name: Template a cron job shell script
+    ansible.builtin.template:
+      src: dynhost.sh.j2
+      dest: "/home/{{dynhost_user}}/cronjob/update.dynhost.{{dynhost_host}}.sh"
+      owner: "{{dynhost_user}}"
+      group: "{{dynhost_user}}"
+      mode: '0500'
+  - name: Create cron job which will execute dynhost update script 
+    ansible.builtin.cron:
+      name: "Update DynHost domain {{dynhost_host}}"
+      minute: "*/{{dynhost_cron_period_minutes}}"
+      job: "/home/{{dynhost_user}}/cronjob/update.dynhost.{{dynhost_host}}.sh"
+      user: "{{dynhost_user}}"
+      backup: true
+      
